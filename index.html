@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IGNITE: QUANTUM SOLVER V11</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 核心引擎 -->
+    <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/nerdamer.core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Algebra.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Calculus.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Solve.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Extra.js"></script>
+    
+    <!-- KaTeX -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/contrib/auto-render.min.js"></script>
+
+    <style>
+        /* ================= 核心视觉 ================= */
+        :root {
+            --cyan: #00f3ff;
+            --blue: #0077ff;
+            --orange: #ffaa00;
+            --red: #ff3366;
+            --purple: #aa00ff;
+            --bg-deep: #000510;
+            --glass: rgba(10, 15, 22, 0.95);
+            --key-base: rgba(255, 255, 255, 0.03);
+            --key-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+        body {
+            margin: 0; padding: 0; height: 100vh; width: 100vw;
+            background-color: var(--bg-deep);
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        #galaxy-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        .grid-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px; pointer-events: none;
+            mask-image: radial-gradient(circle, black 40%, transparent 100%);
+        }
+
+        /* === 计算器主体 === */
+        .calc-wrapper {
+            width: 100%; max-width: 420px; height: 100%; 
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+        @media (min-width: 768px) {
+            .calc-wrapper { height: 95vh; border-radius: 20px; border: 1px solid var(--key-border); }
+        }
+
+        /* === 屏幕区域 === */
+        .screen-section {
+            flex: 1; /* 自适应填满 */
+            padding: 20px;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0, 243, 255, 0.05) 100%);
+            border-bottom: 2px solid var(--cyan);
+            position: relative; overflow: hidden;
+            z-index: 10;
+        }
+        
+        .header-bar {
+            position: absolute; top: 15px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between;
+            font-family: 'Share Tech Mono'; font-size: 10px; color: var(--cyan); opacity: 0.7;
+        }
+
+        /* 语法提示 (Syntax Hint) */
+        .syntax-hint {
+            position: absolute; top: 40px; right: 20px;
+            font-family: 'JetBrains Mono'; font-size: 11px; 
+            color: var(--orange); background: rgba(255, 170, 0, 0.1);
+            padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255, 170, 0, 0.3);
+            opacity: 0; transform: translateY(-10px); transition: 0.3s; pointer-events: none;
+        }
+        .syntax-hint.show { opacity: 1; transform: translateY(0); }
+
+        #latex-preview {
+            text-align: right; margin-bottom: 5px; min-height: 40px;
+            font-size: 32px; color: #fff; 
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.4);
+            overflow-x: auto; overflow-y: hidden;
+            transition: font-size 0.3s;
+            display: flex; align-items: flex-end; justify-content: flex-end;
+        }
+        .calc-wrapper.sci-mode #latex-preview { font-size: 22px; min-height: 35px; }
+
+        .input-line {
+            width: 100%; background: transparent; border: none;
+            color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono'; font-size: 16px;
+            text-align: right; outline: none; border-bottom: 1px dashed rgba(255,255,255,0.1);
+            padding-bottom: 5px;
+        }
+        .input-line::placeholder { color: #345; font-size: 12px; }
+
+        .mode-toggle {
+            position: absolute; top: 45px; left: 20px;
+            display: flex; gap: 5px;
+            background: rgba(255,255,255,0.05); border-radius: 4px; padding: 2px;
+            border: 1px solid rgba(255,255,255,0.1); z-index: 20;
+        }
+        .mode-btn {
+            font-family: 'Share Tech Mono'; font-size: 10px; padding: 4px 8px;
+            cursor: pointer; border-radius: 2px; color: #667; transition: 0.2s;
+        }
+        .mode-btn.active { color: #000; font-weight: bold; }
+        .mode-basic.active { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+        .mode-sci.active { background: var(--purple); color: #fff; box-shadow: 0 0 10px var(--purple); }
+
+        /* === 键盘容器 === */
+        .keypad-container {
+            flex: 0 0 auto;
+            padding: 10px; padding-bottom: 30px; 
+            background: rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .key-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+            transition: all 0.3s ease; 
+        }
+
+        .key {
+            display: flex; align-items: center; justify-content: center;
+            background: var(--key-base); border: 1px solid var(--key-border);
+            border-radius: 6px; color: #fff; font-family: 'Rajdhani'; font-weight: 700;
+            cursor: pointer; transition: all 0.1s; position: relative;
+            clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+        }
+        .key:active { transform: scale(0.96); background: rgba(255,255,255,0.15); }
+
+        /* 模式控制 */
+        .calc-wrapper.basic-mode .k-sci-row { display: none; }
+        .calc-wrapper.basic-mode .key { height: 75px; font-size: 24px; } 
+        .calc-wrapper.sci-mode .k-sci-row { display: flex; } 
+        .calc-wrapper.sci-mode .key { height: 50px; font-size: 16px; } 
+
+        /* 颜色系统 */
+        .k-num { background: rgba(255,255,255,0.02); font-size: 20px; }
+        .k-op { color: var(--cyan); font-weight: 800; border-color: rgba(0,243,255,0.3); font-size: 20px; }
+        .k-fn { color: var(--blue); font-weight: 700; }
+        .k-var { color: var(--purple); font-weight: 800; }
+        .k-ac { color: var(--red); border-color: rgba(255,51,102,0.4); font-weight: 800; font-size: 18px; }
+        .k-tool { color: var(--orange); border-color: rgba(255,170,0,0.3); font-weight: 800; }
+        .k-calc { font-size: 13px; letter-spacing: -0.5px; }
+
+        .k-solve {
+            background: rgba(0, 243, 255, 0.15); 
+            border-color: var(--cyan); color: var(--cyan); font-weight: 800;
+        }
+        .k-solve:active { background: var(--cyan); color: #000; }
+
+        /* 步骤抽屉 */
+        .step-drawer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(8, 12, 18, 0.98); z-index: 50;
+            transform: translateY(110%); transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            display: flex; flex-direction: column; border-top: 2px solid var(--cyan);
+        }
+        .step-drawer.active { transform: translateY(0); }
+        .drawer-header { padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 243, 255, 0.05); }
+        .drawer-title { color: var(--cyan); font-weight: 800; letter-spacing: 1px; }
+        .drawer-close { font-size: 20px; cursor: pointer; padding: 5px; }
+        .drawer-content { flex: 1; overflow-y: auto; padding: 20px; font-family: 'Noto Sans SC'; }
+        .step-card { background: rgba(255,255,255,0.02); border-left: 2px solid var(--blue); padding: 15px; margin-bottom: 15px; animation: slideIn 0.4s ease forwards; }
+        .step-head { font-size: 10px; color: #667; font-family: 'Share Tech Mono'; margin-bottom: 5px; text-transform: uppercase; }
+        .step-body { font-size: 16px; color: #fff; overflow-x: auto; }
+        .step-note { font-size: 13px; color: #abc; margin-top: 8px; line-height: 1.5; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 5px; }
+        .result-card { border-color: var(--cyan); background: rgba(0, 243, 255, 0.05); }
+
+        @keyframes slideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        
+        @media (max-width: 768px) {
+            .calc-wrapper { width: 100%; max-width: none; height: 100%; border: none; border-radius: 0; }
+            .keypad-container { padding-bottom: 50px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="galaxy-container"><canvas id="starfield"></canvas><div class="grid-overlay"></div></div>
+    
+    <div class="calc-wrapper basic-mode" id="calcFrame">
+        <div class="screen-section">
+            <div class="header-bar">
+                <span>IGNITE CORE</span>
+                <span>BAT: ∞</span>
+            </div>
+            
+            <div class="mode-toggle">
+                <div class="mode-btn mode-basic active" onclick="switchMode('basic')">BAS</div>
+                <div class="mode-btn mode-sci" onclick="switchMode('sci')">SCI</div>
+            </div>
+
+            <!-- 语法提示 -->
+            <div class="syntax-hint" id="syntaxHint">Format: (fn, x, a, b)</div>
+            
+            <div id="latex-preview"></div>
+            <input type="text" class="input-line" id="math-input" placeholder="0" autocomplete="off">
+        </div>
+
+        <div class="keypad-container">
+            <div class="key-grid">
+                
+                <!-- === SCI LAYER (高级运算) === -->
+                <!-- Row 1: 微积分 -->
+                <div class="key k-tool k-sci-row k-calc" onclick="insert('diff(')">d/dx</div>
+                <div class="key k-tool k-sci-row k-calc" onclick="insert('integrate(')">∫</div>
+                <div class="key k-tool k-sci-row k-calc" onclick="insert('defint(', 'defint(fn, x, a, b)')">∫_a^b</div>
+                <div class="key k-tool k-sci-row k-calc" onclick="insert('limit(', 'limit(fn, x, val)')">lim</div>
+
+                <!-- Row 2: 分析 -->
+                <div class="key k-tool k-sci-row" onclick="insert('solve(')">SOLVE</div>
+                <div class="key k-tool k-sci-row" onclick="insert('sum(', 'sum(fn, n, start, end)')">Σ</div>
+                <div class="key k-tool k-sci-row" onclick="insert('abs(')">|x|</div>
+                <div class="key k-tool k-sci-row" onclick="toggleDrawer(true)" style="color:#fff; border-color:var(--orange);">STEPS</div>
+                
+                <!-- Row 3: 三角 -->
+                <div class="key k-fn k-sci-row" onclick="insert('sin(')">sin</div>
+                <div class="key k-fn k-sci-row" onclick="insert('cos(')">cos</div>
+                <div class="key k-fn k-sci-row" onclick="insert('tan(')">tan</div>
+                <div class="key k-fn k-sci-row" onclick="insert('sqrt(')">√</div>
+
+                <!-- Row 4: 对数 -->
+                <div class="key k-fn k-sci-row" onclick="insert('log(')">ln</div>
+                <div class="key k-fn k-sci-row" onclick="insert('log10(')">lg</div>
+                <div class="key k-fn k-sci-row" onclick="insert('e')">e</div>
+                <div class="key k-op k-sci-row" onclick="insert('^')">^</div>
+
+                <!-- Row 5: 变量 -->
+                <div class="key k-var k-sci-row" onclick="insert('x')">x</div>
+                <div class="key k-var k-sci-row" onclick="insert('y')">y</div>
+                <div class="key k-fn k-sci-row" onclick="insert('pi')">π</div>
+                <div class="key k-fn k-sci-row" onclick="insert('Infinity')">∞</div>
+
+                <!-- Row 6: 符号 -->
+                <div class="key k-fn k-sci-row" onclick="insert('factorial(')">!</div>
+                <div class="key k-fn k-sci-row" style="color:var(--orange); font-weight:800;" onclick="insert(',')">,</div>
+                <div class="key k-fn k-sci-row" onclick="insert('%')">%</div>
+                <div class="key k-fn k-sci-row" style="opacity:0.3; pointer-events:none;"></div>
+
+                <!-- === BASE LAYER (数字) === -->
+                <!-- Row 1 -->
+                <div class="key k-ac" onclick="clearAll()">AC</div>
+                <div class="key k-fn" onclick="insert('(')">(</div>
+                <div class="key k-fn" onclick="insert(')')">)</div>
+                <div class="key k-op" onclick="insert('/')">/</div>
+
+                <!-- Row 2 -->
+                <div class="key k-num" onclick="insert('7')">7</div>
+                <div class="key k-num" onclick="insert('8')">8</div>
+                <div class="key k-num" onclick="insert('9')">9</div>
+                <div class="key k-op" onclick="insert('*')">×</div>
+
+                <!-- Row 3 -->
+                <div class="key k-num" onclick="insert('4')">4</div>
+                <div class="key k-num" onclick="insert('5')">5</div>
+                <div class="key k-num" onclick="insert('6')">6</div>
+                <div class="key k-op" onclick="insert('-')">-</div>
+
+                <!-- Row 4 -->
+                <div class="key k-num" onclick="insert('1')">1</div>
+                <div class="key k-num" onclick="insert('2')">2</div>
+                <div class="key k-num" onclick="insert('3')">3</div>
+                <div class="key k-op" onclick="insert('+')">+</div>
+
+                <!-- Row 5 -->
+                <div class="key k-num" onclick="insert('0')">0</div>
+                <div class="key k-num" onclick="insert('.')">.</div>
+                <div class="key k-ac" onclick="backspace()">⌫</div>
+                <div class="key k-solve" onclick="calculate()">=</div>
+            </div>
+        </div>
+
+        <!-- 步骤抽屉 -->
+        <div class="step-drawer" id="stepDrawer">
+            <div class="drawer-header">
+                <span class="drawer-title">SOLUTION LOGIC</span>
+                <div class="drawer-close" onclick="toggleDrawer(false)">×</div>
+            </div>
+            <div class="drawer-content" id="stepContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const calcFrame = document.getElementById('calcFrame');
+        const input = document.getElementById('math-input');
+        const preview = document.getElementById('latex-preview');
+        const drawer = document.getElementById('stepDrawer');
+        const content = document.getElementById('stepContent');
+        const hint = document.getElementById('syntaxHint');
+
+        function switchMode(mode) {
+            if(mode === 'basic') {
+                calcFrame.classList.remove('sci-mode');
+                calcFrame.classList.add('basic-mode');
+                document.querySelector('.mode-basic').classList.add('active');
+                document.querySelector('.mode-sci').classList.remove('active');
+            } else {
+                calcFrame.classList.remove('basic-mode');
+                calcFrame.classList.add('sci-mode');
+                document.querySelector('.mode-sci').classList.add('active');
+                document.querySelector('.mode-basic').classList.remove('active');
+            }
+        }
+
+        input.addEventListener('input', renderPreview);
+
+        function renderPreview() {
+            let txt = input.value;
+            if(!txt) { preview.innerHTML = ""; return; }
+            
+            // LaTeX 美化替换
+            txt = txt.replace(/sqrt/g, '\\sqrt')
+                     .replace(/diff/g, '\\frac{d}{dx}')
+                     .replace(/defint/g, '\\int_{a}^{b}')
+                     .replace(/integrate/g, '\\int')
+                     .replace(/limit/g, '\\lim')
+                     .replace(/sum/g, '\\sum')
+                     .replace(/Infinity/g, '\\infty')
+                     .replace(/\*/g, '\\cdot ')
+                     .replace(/pi/g, '\\pi')
+                     .replace(/log10/g, '\\lg')
+                     .replace(/log/g, '\\ln')
+                     .replace(/factorial/g, '!')
+                     .replace(/abs/g, '| |');
+            
+            try { katex.render(txt, preview, {throwOnError: false}); } catch(e) {}
+        }
+
+        // 修改 insert 函数，支持提示文本
+        function insert(val, hintText = null) {
+            const start = input.selectionStart; const end = input.selectionEnd;
+            input.value = input.value.substring(0, start) + val + input.value.substring(end);
+            input.focus(); input.setSelectionRange(start + val.length, start + val.length);
+            renderPreview();
+            
+            // 显示语法提示
+            if(hintText) {
+                hint.innerText = hintText;
+                hint.classList.add('show');
+                setTimeout(() => hint.classList.remove('show'), 3000);
+            }
+        }
+
+        function clearAll() { input.value = ""; preview.innerHTML = ""; content.innerHTML = ""; toggleDrawer(false); }
+        function backspace() { input.value = input.value.slice(0, -1); renderPreview(); }
+        function toggleDrawer(show) { show ? drawer.classList.add('active') : drawer.classList.remove('active'); }
+
+        function calculate() {
+            let expr = input.value;
+            if(!expr) return;
+            const open = (expr.match(/\(/g) || []).length;
+            const close = (expr.match(/\)/g) || []).length;
+            if(open > close) expr += ")".repeat(open - close);
+
+            try {
+                let result = "", html = "";
+                
+                // 1. 极限
+                if(expr.startsWith('limit(')) {
+                    // nerdamer limit(expr, x, val)
+                    const core = nerdamer(expr).toTeX();
+                    html = makeStep("LIMIT ANALYSIS", `$$ ${core} $$`) + makeStep("RESULT", core, "", true);
+                    result = core;
+                }
+                // 2. 定积分 defint(fn, x, a, b)
+                else if(expr.startsWith('defint(')) {
+                    // nerdamer defint(fn, a, b) -> 如果只有一个变量，可以省略变量名，但最好带上
+                    let val = nerdamer(expr).text(); // 得到数值
+                    html = makeStep("DEFINITE INTEGRAL", `$$ \\int_{a}^{b} f(x) dx $$`) + makeStep("EVALUATION", val, "", true);
+                    result = val;
+                }
+                // 3. 求和 sum(fn, n, start, end)
+                else if(expr.startsWith('sum(')) {
+                    let val = nerdamer(expr).text();
+                    html = makeStep("SUMMATION", `$$ \\sum f(n) $$`) + makeStep("RESULT", val, "", true);
+                    result = val;
+                }
+                // 4. 求导
+                else if(expr.startsWith('diff(')) {
+                    const core = expr.match(/diff\((.*)\)/)[1];
+                    result = nerdamer(expr).toTeX();
+                    html = makeStep("INPUT", `f(x) = ${core}`) + makeStep("RULE", "Applying Differentiation Rules") + makeStep("RESULT", result, "", true);
+                } 
+                // 5. 不定积分
+                else if(expr.startsWith('integrate(')) {
+                    const core = expr.match(/integrate\((.*)\)/)[1];
+                    result = nerdamer(expr).toTeX();
+                    html = makeStep("INTEGRAND", `\\int (${core}) \\, dx`) + makeStep("RULE", "Finding Antiderivative") + makeStep("RESULT", `${result} + C`, "", true);
+                }
+                // 6. 解方程
+                else if(expr.startsWith('solve(')) {
+                    let core = expr.match(/solve\((.*)\)/)[1];
+                    let sol = nerdamer.solve(core, 'x'); 
+                    let rootsTex = sol.toString().replace(/\[|\]/g, '').split(',').map(r => `x = ${nerdamer(r).toTeX()}`).join('\\quad \\text{or} \\quad ');
+                    html = makeStep("EQUATION", `${core} = 0`) + makeStep("ROOTS", rootsTex || "No Solution", "", true);
+                    result = rootsTex;
+                }
+                // 7. 普通计算
+                else {
+                    const ans = nerdamer(expr);
+                    result = ans.toTeX();
+                    let numericNote = "";
+                    if((expr.includes('e') || expr.includes('pi') || expr.includes('sqrt')) && !isNaN(ans.evaluate().text())) {
+                         numericNote = `Approx: ${parseFloat(ans.evaluate().text()).toFixed(6)}`;
+                    }
+                    html = makeStep("EXPRESSION", expr) + makeStep("RESULT", result, numericNote, true);
+                }
+
+                katex.render(result, preview, {throwOnError:false, displayMode:true});
+                content.innerHTML = html;
+                renderMathInElement(content, {delimiters: [{left: "$$", right: "$$", display: true}]});
+                toggleDrawer(true);
+
+            } catch(e) {
+                console.log(e);
+                preview.innerHTML = "<span style='color:#ff3366; font-size:16px;'>SYNTAX ERROR</span>";
+            }
+        }
+
+        function makeStep(title, math, desc="", isFinal=false) {
+            let descHtml = desc ? `<div class="step-note">${desc}</div>` : '';
+            // 简单的数学公式包装
+            let mathHtml = (math.includes('$$') || math.includes('\\')) ? math : `$$ ${math} $$`;
+            return `<div class="step-card ${isFinal?'result-card':''}"><div class="step-head">// ${title}</div><div class="step-body">${mathHtml}</div>${descHtml}</div>`;
+        }
+
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        let w, h, stars = [];
+        function initStars() { w = window.innerWidth; h = window.innerHeight; canvas.width = w; canvas.height = h; stars = []; for(let i=0; i<80; i++) stars.push({x:Math.random()*w, y:Math.random()*h, s:Math.random()*1.5, v:Math.random()*0.2}); }
+        function animate() { ctx.clearRect(0,0,w,h); ctx.fillStyle = "rgba(255,255,255,0.7)"; stars.forEach(s => { s.y -= s.v; if(s.y<0) s.y=h; ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI*2); ctx.fill(); }); requestAnimationFrame(animate); }
+        window.addEventListener('resize', initStars); initStars(); animate();
+    </script>
+</body>
+</html>
