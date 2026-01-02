@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- 关键：禁止用户缩放，适配刘海屏 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>IGNITE: PANG CALCULATOR</title>
+    <title>IGNITE: QUANTUM SOLVER</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -34,13 +33,12 @@
             --key-border: rgba(255, 255, 255, 0.1);
         }
 
-        /* 禁止全选和长按菜单 */
         * { 
             box-sizing: border-box; 
             -webkit-tap-highlight-color: transparent; 
             user-select: none; 
             -webkit-user-select: none;
-            touch-action: manipulation; /* 优化点击响应 */
+            touch-action: manipulation;
         }
 
         body {
@@ -68,15 +66,14 @@
             display: flex; flex-direction: column;
             position: relative;
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
         }
         @media (min-width: 768px) {
             .calc-wrapper { height: 95vh; border-radius: 20px; border: 1px solid var(--key-border); }
         }
 
-        /* === 屏幕区域 === */
+        /* === 屏幕区域 (自适应填满剩余空间) === */
         .screen-section {
-            flex: 1; 
+            flex: 1; /* 关键：自动占据所有不需要键盘的空间 */
             padding: 20px;
             display: flex; flex-direction: column; justify-content: flex-end;
             background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0, 243, 255, 0.05) 100%);
@@ -91,48 +88,24 @@
             font-family: 'Share Tech Mono'; font-size: 10px; color: var(--cyan); opacity: 0.7;
         }
 
-        /* 阿胖 Mini */
-        .pang-monitor-widget {
-            position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; pointer-events: none; z-index: 20; transition: all 0.3s;
-        }
-        .pm-head {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 50px; height: 40px; background: rgba(0, 243, 255, 0.1);
-            border: 1px solid var(--cyan); border-radius: 45% 45% 40% 40%;
-            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); transition: all 0.3s;
-        }
-        .pm-ear { position: absolute; top: -8px; width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 20px solid var(--cyan); opacity: 0.8; }
-        .pm-ear.left { left: 0; transform: rotate(-20deg); } .pm-ear.right { right: 0; transform: rotate(20deg); }
-        .pm-eye { position: absolute; top: 15px; width: 10px; height: 8px; background: var(--cyan); border-radius: 50%; transition: all 0.2s; }
-        .pm-eye.left { left: 10px; } .pm-eye.right { right: 10px; }
-        .pm-monocle { position: absolute; top: 10px; right: 6px; width: 18px; height: 18px; border: 1px solid #fff; border-radius: 50%; opacity: 0.6; }
-
-        /* 阿胖状态 */
-        .pang-monitor-widget.thinking .pm-head { animation: pulse 0.5s infinite alternate; border-color: var(--orange); background: rgba(255, 170, 0, 0.1); }
-        .pang-monitor-widget.error .pm-head { border-color: var(--red); background: rgba(255, 51, 102, 0.2); transform: translate(-50%, -50%) rotate(5deg); }
-        .pang-monitor-widget.success .pm-head { transform: translate(-50%, -60%); }
-
         #latex-preview {
-            text-align: right; margin-bottom: 5px; min-height: 40px;
+            text-align: right; margin-bottom: 10px; 
             font-size: 32px; color: #fff; 
             text-shadow: 0 0 10px rgba(0, 243, 255, 0.4);
             overflow-x: auto; overflow-y: hidden;
-            transition: font-size 0.3s;
+            /* 保证内容多时也能看到 */
+            max-height: 120px; 
             display: flex; align-items: flex-end; justify-content: flex-end;
-            padding-right: 10px;
         }
-        .calc-wrapper.sci-mode #latex-preview { font-size: 24px; min-height: 35px; }
 
-        /* 输入框修复：禁止弹出键盘 */
         .input-line {
             width: 100%; background: transparent; border: none;
-            color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono'; font-size: 16px;
+            color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono'; font-size: 18px;
             text-align: right; outline: none; border-bottom: 1px dashed rgba(255,255,255,0.1);
             padding-bottom: 5px;
-            /* 关键：允许光标但不弹键盘 */
             caret-color: var(--cyan);
         }
-        .input-line::placeholder { color: #345; font-size: 12px; }
+        .input-line::placeholder { color: #345; font-size: 14px; }
 
         .syntax-hint {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -143,7 +116,7 @@
         .syntax-hint.show { opacity: 1; }
 
         .mode-toggle {
-            position: absolute; top: 45px; left: 20px;
+            position: absolute; top: 40px; left: 20px;
             display: flex; gap: 5px;
             background: rgba(255,255,255,0.05); border-radius: 4px; padding: 2px;
             border: 1px solid rgba(255,255,255,0.1); z-index: 20;
@@ -156,36 +129,38 @@
         .mode-basic.active { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
         .mode-sci.active { background: var(--purple); color: #fff; box-shadow: 0 0 10px var(--purple); }
 
-        /* === 键盘容器 === */
+        /* === 键盘容器 (高度自适应) === */
         .keypad-container {
             flex: 0 0 auto;
-            padding: 10px; padding-bottom: 30px; 
+            padding: 8px; 
+            padding-bottom: 25px; /* 适配 iPhone 底部横条 */
             background: rgba(0,0,0,0.2);
-            overflow-y: auto;
         }
 
         .key-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+            display: grid; grid-template-columns: repeat(4, 1fr); 
+            gap: 6px; /* 缩小间距 */
             transition: all 0.3s ease; 
         }
 
-        /* 按钮通用样式 */
         .key {
             display: flex; align-items: center; justify-content: center;
             background: var(--key-base); border: 1px solid var(--key-border);
             border-radius: 6px; color: #fff; font-family: 'Rajdhani'; font-weight: 700;
             cursor: pointer; transition: all 0.1s; position: relative;
-            clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-            /* 禁止文字被选中 */
-            user-select: none; -webkit-user-select: none;
+            /* 稍微减小圆角和切角，显得更紧凑 */
+            clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
         }
         .key:active { transform: scale(0.96); background: rgba(255,255,255,0.15); }
 
         /* 模式控制 */
         .calc-wrapper.basic-mode .k-sci-row { display: none; }
-        .calc-wrapper.basic-mode .key { height: 75px; font-size: 24px; } 
+        /* 基础模式按键高度 */
+        .calc-wrapper.basic-mode .key { height: 65px; font-size: 26px; } 
+        
         .calc-wrapper.sci-mode .k-sci-row { display: flex; } 
-        .calc-wrapper.sci-mode .key { height: 50px; font-size: 16px; } 
+        /* 科学模式按键高度：大幅压缩 */
+        .calc-wrapper.sci-mode .key { height: 46px; font-size: 16px; } 
 
         .k-num { background: rgba(255,255,255,0.02); font-size: 20px; }
         .k-op { color: var(--cyan); font-weight: 800; border-color: rgba(0,243,255,0.3); font-size: 20px; }
@@ -219,20 +194,7 @@
         .step-note { font-size: 13px; color: #abc; margin-top: 8px; line-height: 1.5; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 5px; }
         .result-card { border-color: var(--cyan); background: rgba(0, 243, 255, 0.05); }
 
-        /* 阿胖气泡 */
-        .pang-bubble {
-            background: rgba(0, 243, 255, 0.05); border: 1px solid var(--primary); color: var(--primary);
-            padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 12px;
-            display: flex; align-items: center; gap: 10px;
-        }
-
         @keyframes slideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes pulse { 0% { opacity:0.5; } 100% { opacity:1; } }
-
-        @media (max-width: 768px) {
-            .calc-wrapper { width: 100%; max-width: none; height: 100%; border: none; border-radius: 0; }
-            .keypad-container { padding-bottom: 50px; }
-        }
     </style>
 </head>
 <body>
@@ -246,15 +208,6 @@
                 <span>BAT: ∞</span>
             </div>
             
-            <!-- 阿胖 Mini -->
-            <div class="pang-monitor-widget" id="pangWidget">
-                <div class="pm-head">
-                    <div class="pm-ear left"></div><div class="pm-ear right"></div>
-                    <div class="pm-eye left"></div><div class="pm-eye right"></div>
-                    <div class="pm-monocle"></div>
-                </div>
-            </div>
-
             <div class="mode-toggle">
                 <div class="mode-btn mode-basic active" onclick="switchMode('basic')">BAS</div>
                 <div class="mode-btn mode-sci" onclick="switchMode('sci')">SCI</div>
@@ -264,14 +217,14 @@
             
             <div id="latex-preview"></div>
             
-            <!-- 核心修复：inputmode="none" 禁止手机键盘弹出 -->
+            <!-- inputmode="none" + readonly 双重保险 -->
             <input type="text" class="input-line" id="math-input" placeholder="0" autocomplete="off" inputmode="none" readonly>
         </div>
 
         <div class="keypad-container">
             <div class="key-grid">
                 
-                <!-- SCI LAYER -->
+                <!-- SCI LAYER (6行) -->
                 <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('diff(')">d/dx</div>
                 <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('integrate(')">∫</div>
                 <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('defint(', 'defint(fn, x, a, b)')">∫_a^b</div>
@@ -302,7 +255,7 @@
                 <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('%')">%</div>
                 <div class="key k-fn k-sci-row" style="opacity:0.3; pointer-events:none;"></div>
 
-                <!-- BASE LAYER -->
+                <!-- BASE LAYER (5行) -->
                 <div class="key k-ac" onmousedown="event.preventDefault()" onclick="clearAll()">AC</div>
                 <div class="key k-fn" onmousedown="event.preventDefault()" onclick="insert('(')">(</div>
                 <div class="key k-fn" onmousedown="event.preventDefault()" onclick="insert(')')">)</div>
@@ -347,7 +300,6 @@
         const drawer = document.getElementById('stepDrawer');
         const content = document.getElementById('stepContent');
         const hint = document.getElementById('syntaxHint');
-        const pang = document.getElementById('pangWidget');
 
         function switchMode(mode) {
             if(mode === 'basic') {
@@ -363,7 +315,6 @@
             }
         }
 
-        // 核心修改：移除 focus 监听，避免键盘弹出
         input.addEventListener('input', renderPreview);
 
         function renderPreview() {
@@ -386,11 +337,9 @@
         }
 
         function insert(val, hintText = null) {
-            // 简单插入，不使用 selectionStart 防止某些浏览器强制聚焦
             input.value += val;
             renderPreview();
             
-            // 显示语法提示
             if(hintText) {
                 hint.innerText = hintText;
                 hint.classList.add('show');
@@ -398,20 +347,13 @@
             }
         }
 
-        function clearAll() { input.value = ""; preview.innerHTML = ""; content.innerHTML = ""; toggleDrawer(false); setPangState('idle'); }
+        function clearAll() { input.value = ""; preview.innerHTML = ""; content.innerHTML = ""; toggleDrawer(false); }
         function backspace() { input.value = input.value.slice(0, -1); renderPreview(); }
         function toggleDrawer(show) { show ? drawer.classList.add('active') : drawer.classList.remove('active'); }
-
-        function setPangState(state) {
-            pang.classList.remove('thinking', 'error', 'success');
-            if(state !== 'idle') pang.classList.add(state);
-        }
 
         function calculate() {
             let expr = input.value;
             if(!expr) return;
-            setPangState('thinking');
-
             const open = (expr.match(/\(/g) || []).length;
             const close = (expr.match(/\)/g) || []).length;
             if(open > close) expr += ")".repeat(open - close);
@@ -419,19 +361,16 @@
             setTimeout(() => {
                 try {
                     let result = "", html = "";
-                    let pangSay = "Calculating...";
 
                     if(expr.startsWith('limit(')) {
                         const core = nerdamer(expr).toTeX();
                         html = makeStep("LIMIT ANALYSIS", `$$ ${core} $$`) + makeStep("RESULT", core, "", true);
                         result = core;
-                        pangSay = "Limit approached.";
                     }
                     else if(expr.startsWith('defint(')) {
                         let val = nerdamer(expr).text();
                         html = makeStep("DEFINITE INTEGRAL", `$$ \\int_{a}^{b} f(x) dx $$`) + makeStep("EVALUATION", val, "", true);
                         result = val;
-                        pangSay = "Area found.";
                     }
                     else if(expr.startsWith('sum(')) {
                         result = nerdamer(expr).toTeX();
@@ -441,14 +380,12 @@
                     else if(expr.startsWith('diff(')) {
                         const core = expr.match(/diff\((.*)\)/)[1];
                         result = nerdamer(expr).toTeX();
-                        html = makeStep("INPUT", `f(x) = ${core}`) + makeStep("RULE", "Applying Rules") + makeStep("RESULT", result, "", true);
-                        pangSay = "Slope calculated.";
+                        html = makeStep("INPUT", `f(x) = ${core}`) + makeStep("RULE", "Applying Differentiation Rules") + makeStep("RESULT", result, "", true);
                     } 
                     else if(expr.startsWith('integrate(')) {
                         const core = expr.match(/integrate\((.*)\)/)[1];
                         result = nerdamer(expr).toTeX();
-                        html = makeStep("INTEGRAND", `\\int (${core}) \\, dx`) + makeStep("RULE", "Antiderivative") + makeStep("RESULT", `${result} + C`, "", true);
-                        pangSay = "Don't forget + C!";
+                        html = makeStep("INTEGRAND", `\\int (${core}) \\, dx`) + makeStep("RULE", "Finding Antiderivative") + makeStep("RESULT", `${result} + C`, "", true);
                     }
                     else if(expr.startsWith('solve(')) {
                         let core = expr.match(/solve\((.*)\)/)[1];
@@ -456,7 +393,6 @@
                         let rootsTex = sol.toString().replace(/\[|\]/g, '').split(',').map(r => `x = ${nerdamer(r).toTeX()}`).join('\\quad \\text{or} \\quad ');
                         html = makeStep("EQUATION", `${core} = 0`) + makeStep("ROOTS", rootsTex || "No Solution", "", true);
                         result = rootsTex;
-                        pangSay = "Solved.";
                     }
                     else {
                         const ans = nerdamer(expr);
@@ -466,26 +402,17 @@
                             numericNote = `Approx: ${parseFloat(ans.evaluate().text()).toFixed(6)}`;
                         }
                         html = makeStep("EXPRESSION", expr) + makeStep("RESULT", result, numericNote, true);
-                        pangSay = "Done.";
                     }
 
                     katex.render(result, preview, {throwOnError:false, displayMode:true});
-                    
-                    const pangHtml = `<div class="pang-bubble"><i class="fas fa-cat"></i> ${pangSay}</div>`;
-                    content.innerHTML = pangHtml + html;
-                    
+                    content.innerHTML = html;
                     renderMathInElement(content, {delimiters: [{left: "$$", right: "$$", display: true}]});
                     toggleDrawer(true);
-                    
-                    setPangState('success');
-                    setTimeout(() => setPangState('idle'), 2000);
 
                 } catch(e) {
                     preview.innerHTML = "<span style='color:#ff3366; font-size:16px;'>SYNTAX ERROR</span>";
-                    setPangState('error');
-                    setTimeout(() => setPangState('idle'), 2000);
                 }
-            }, 300);
+            }, 100);
         }
 
         function makeStep(title, math, desc="", isFinal=false) {
