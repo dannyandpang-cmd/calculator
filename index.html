@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IGNITE: QUANTUM SOLVER V11</title>
+    <!-- 关键：禁止用户缩放，适配刘海屏 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>IGNITE: PANG CALCULATOR</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -13,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Algebra.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Calculus.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Solve.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/nerdamer@1.1.13/Extra.js"></script>
     
     <!-- KaTeX -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css">
@@ -34,7 +34,14 @@
             --key-border: rgba(255, 255, 255, 0.1);
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        /* 禁止全选和长按菜单 */
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none; 
+            -webkit-user-select: none;
+            touch-action: manipulation; /* 优化点击响应 */
+        }
 
         body {
             margin: 0; padding: 0; height: 100vh; width: 100vw;
@@ -69,7 +76,7 @@
 
         /* === 屏幕区域 === */
         .screen-section {
-            flex: 1; /* 自适应填满 */
+            flex: 1; 
             padding: 20px;
             display: flex; flex-direction: column; justify-content: flex-end;
             background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0, 243, 255, 0.05) 100%);
@@ -84,15 +91,26 @@
             font-family: 'Share Tech Mono'; font-size: 10px; color: var(--cyan); opacity: 0.7;
         }
 
-        /* 语法提示 (Syntax Hint) */
-        .syntax-hint {
-            position: absolute; top: 40px; right: 20px;
-            font-family: 'JetBrains Mono'; font-size: 11px; 
-            color: var(--orange); background: rgba(255, 170, 0, 0.1);
-            padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255, 170, 0, 0.3);
-            opacity: 0; transform: translateY(-10px); transition: 0.3s; pointer-events: none;
+        /* 阿胖 Mini */
+        .pang-monitor-widget {
+            position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; pointer-events: none; z-index: 20; transition: all 0.3s;
         }
-        .syntax-hint.show { opacity: 1; transform: translateY(0); }
+        .pm-head {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 50px; height: 40px; background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--cyan); border-radius: 45% 45% 40% 40%;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); transition: all 0.3s;
+        }
+        .pm-ear { position: absolute; top: -8px; width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 20px solid var(--cyan); opacity: 0.8; }
+        .pm-ear.left { left: 0; transform: rotate(-20deg); } .pm-ear.right { right: 0; transform: rotate(20deg); }
+        .pm-eye { position: absolute; top: 15px; width: 10px; height: 8px; background: var(--cyan); border-radius: 50%; transition: all 0.2s; }
+        .pm-eye.left { left: 10px; } .pm-eye.right { right: 10px; }
+        .pm-monocle { position: absolute; top: 10px; right: 6px; width: 18px; height: 18px; border: 1px solid #fff; border-radius: 50%; opacity: 0.6; }
+
+        /* 阿胖状态 */
+        .pang-monitor-widget.thinking .pm-head { animation: pulse 0.5s infinite alternate; border-color: var(--orange); background: rgba(255, 170, 0, 0.1); }
+        .pang-monitor-widget.error .pm-head { border-color: var(--red); background: rgba(255, 51, 102, 0.2); transform: translate(-50%, -50%) rotate(5deg); }
+        .pang-monitor-widget.success .pm-head { transform: translate(-50%, -60%); }
 
         #latex-preview {
             text-align: right; margin-bottom: 5px; min-height: 40px;
@@ -101,16 +119,28 @@
             overflow-x: auto; overflow-y: hidden;
             transition: font-size 0.3s;
             display: flex; align-items: flex-end; justify-content: flex-end;
+            padding-right: 10px;
         }
-        .calc-wrapper.sci-mode #latex-preview { font-size: 22px; min-height: 35px; }
+        .calc-wrapper.sci-mode #latex-preview { font-size: 24px; min-height: 35px; }
 
+        /* 输入框修复：禁止弹出键盘 */
         .input-line {
             width: 100%; background: transparent; border: none;
             color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono'; font-size: 16px;
             text-align: right; outline: none; border-bottom: 1px dashed rgba(255,255,255,0.1);
             padding-bottom: 5px;
+            /* 关键：允许光标但不弹键盘 */
+            caret-color: var(--cyan);
         }
         .input-line::placeholder { color: #345; font-size: 12px; }
+
+        .syntax-hint {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Share Tech Mono'; font-size: 12px; color: var(--cyan);
+            background: rgba(0,0,0,0.8); padding: 5px 10px; border: 1px solid var(--cyan);
+            pointer-events: none; opacity: 0; transition: 0.3s;
+        }
+        .syntax-hint.show { opacity: 1; }
 
         .mode-toggle {
             position: absolute; top: 45px; left: 20px;
@@ -139,12 +169,15 @@
             transition: all 0.3s ease; 
         }
 
+        /* 按钮通用样式 */
         .key {
             display: flex; align-items: center; justify-content: center;
             background: var(--key-base); border: 1px solid var(--key-border);
             border-radius: 6px; color: #fff; font-family: 'Rajdhani'; font-weight: 700;
             cursor: pointer; transition: all 0.1s; position: relative;
             clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+            /* 禁止文字被选中 */
+            user-select: none; -webkit-user-select: none;
         }
         .key:active { transform: scale(0.96); background: rgba(255,255,255,0.15); }
 
@@ -154,7 +187,6 @@
         .calc-wrapper.sci-mode .k-sci-row { display: flex; } 
         .calc-wrapper.sci-mode .key { height: 50px; font-size: 16px; } 
 
-        /* 颜色系统 */
         .k-num { background: rgba(255,255,255,0.02); font-size: 20px; }
         .k-op { color: var(--cyan); font-weight: 800; border-color: rgba(0,243,255,0.3); font-size: 20px; }
         .k-fn { color: var(--blue); font-weight: 700; }
@@ -187,8 +219,16 @@
         .step-note { font-size: 13px; color: #abc; margin-top: 8px; line-height: 1.5; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 5px; }
         .result-card { border-color: var(--cyan); background: rgba(0, 243, 255, 0.05); }
 
+        /* 阿胖气泡 */
+        .pang-bubble {
+            background: rgba(0, 243, 255, 0.05); border: 1px solid var(--primary); color: var(--primary);
+            padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 12px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
         @keyframes slideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        
+        @keyframes pulse { 0% { opacity:0.5; } 100% { opacity:1; } }
+
         @media (max-width: 768px) {
             .calc-wrapper { width: 100%; max-width: none; height: 100%; border: none; border-radius: 0; }
             .keypad-container { padding-bottom: 50px; }
@@ -206,88 +246,87 @@
                 <span>BAT: ∞</span>
             </div>
             
+            <!-- 阿胖 Mini -->
+            <div class="pang-monitor-widget" id="pangWidget">
+                <div class="pm-head">
+                    <div class="pm-ear left"></div><div class="pm-ear right"></div>
+                    <div class="pm-eye left"></div><div class="pm-eye right"></div>
+                    <div class="pm-monocle"></div>
+                </div>
+            </div>
+
             <div class="mode-toggle">
                 <div class="mode-btn mode-basic active" onclick="switchMode('basic')">BAS</div>
                 <div class="mode-btn mode-sci" onclick="switchMode('sci')">SCI</div>
             </div>
 
-            <!-- 语法提示 -->
             <div class="syntax-hint" id="syntaxHint">Format: (fn, x, a, b)</div>
             
             <div id="latex-preview"></div>
-            <input type="text" class="input-line" id="math-input" placeholder="0" autocomplete="off">
+            
+            <!-- 核心修复：inputmode="none" 禁止手机键盘弹出 -->
+            <input type="text" class="input-line" id="math-input" placeholder="0" autocomplete="off" inputmode="none" readonly>
         </div>
 
         <div class="keypad-container">
             <div class="key-grid">
                 
-                <!-- === SCI LAYER (高级运算) === -->
-                <!-- Row 1: 微积分 -->
-                <div class="key k-tool k-sci-row k-calc" onclick="insert('diff(')">d/dx</div>
-                <div class="key k-tool k-sci-row k-calc" onclick="insert('integrate(')">∫</div>
-                <div class="key k-tool k-sci-row k-calc" onclick="insert('defint(', 'defint(fn, x, a, b)')">∫_a^b</div>
-                <div class="key k-tool k-sci-row k-calc" onclick="insert('limit(', 'limit(fn, x, val)')">lim</div>
+                <!-- SCI LAYER -->
+                <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('diff(')">d/dx</div>
+                <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('integrate(')">∫</div>
+                <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('defint(', 'defint(fn, x, a, b)')">∫_a^b</div>
+                <div class="key k-tool k-sci-row k-calc" onmousedown="event.preventDefault()" onclick="insert('limit(', 'limit(fn, x, val)')">lim</div>
 
-                <!-- Row 2: 分析 -->
-                <div class="key k-tool k-sci-row" onclick="insert('solve(')">SOLVE</div>
-                <div class="key k-tool k-sci-row" onclick="insert('sum(', 'sum(fn, n, start, end)')">Σ</div>
-                <div class="key k-tool k-sci-row" onclick="insert('abs(')">|x|</div>
-                <div class="key k-tool k-sci-row" onclick="toggleDrawer(true)" style="color:#fff; border-color:var(--orange);">STEPS</div>
+                <div class="key k-tool k-sci-row" onmousedown="event.preventDefault()" onclick="insert('solve(')">SOLVE</div>
+                <div class="key k-tool k-sci-row" onmousedown="event.preventDefault()" onclick="insert('sum(', 'sum(fn, n, start, end)')">Σ</div>
+                <div class="key k-tool k-sci-row" onmousedown="event.preventDefault()" onclick="insert('abs(')">|x|</div>
+                <div class="key k-tool k-sci-row" onmousedown="event.preventDefault()" onclick="toggleDrawer(true)" style="color:#fff; border-color:var(--orange);">STEPS</div>
                 
-                <!-- Row 3: 三角 -->
-                <div class="key k-fn k-sci-row" onclick="insert('sin(')">sin</div>
-                <div class="key k-fn k-sci-row" onclick="insert('cos(')">cos</div>
-                <div class="key k-fn k-sci-row" onclick="insert('tan(')">tan</div>
-                <div class="key k-fn k-sci-row" onclick="insert('sqrt(')">√</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('sin(')">sin</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('cos(')">cos</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('tan(')">tan</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('sqrt(')">√</div>
 
-                <!-- Row 4: 对数 -->
-                <div class="key k-fn k-sci-row" onclick="insert('log(')">ln</div>
-                <div class="key k-fn k-sci-row" onclick="insert('log10(')">lg</div>
-                <div class="key k-fn k-sci-row" onclick="insert('e')">e</div>
-                <div class="key k-op k-sci-row" onclick="insert('^')">^</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('log(')">ln</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('log10(')">lg</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('e')">e</div>
+                <div class="key k-op k-sci-row" onmousedown="event.preventDefault()" onclick="insert('^')">^</div>
 
-                <!-- Row 5: 变量 -->
-                <div class="key k-var k-sci-row" onclick="insert('x')">x</div>
-                <div class="key k-var k-sci-row" onclick="insert('y')">y</div>
-                <div class="key k-fn k-sci-row" onclick="insert('pi')">π</div>
-                <div class="key k-fn k-sci-row" onclick="insert('Infinity')">∞</div>
+                <div class="key k-var k-sci-row" onmousedown="event.preventDefault()" onclick="insert('x')">x</div>
+                <div class="key k-var k-sci-row" onmousedown="event.preventDefault()" onclick="insert('y')">y</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('pi')">π</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('Infinity')">∞</div>
 
-                <!-- Row 6: 符号 -->
-                <div class="key k-fn k-sci-row" onclick="insert('factorial(')">!</div>
-                <div class="key k-fn k-sci-row" style="color:var(--orange); font-weight:800;" onclick="insert(',')">,</div>
-                <div class="key k-fn k-sci-row" onclick="insert('%')">%</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('factorial(')">!</div>
+                <div class="key k-fn k-sci-row" style="color:var(--orange); font-weight:800;" onmousedown="event.preventDefault()" onclick="insert(',')">,</div>
+                <div class="key k-fn k-sci-row" onmousedown="event.preventDefault()" onclick="insert('%')">%</div>
                 <div class="key k-fn k-sci-row" style="opacity:0.3; pointer-events:none;"></div>
 
-                <!-- === BASE LAYER (数字) === -->
-                <!-- Row 1 -->
-                <div class="key k-ac" onclick="clearAll()">AC</div>
-                <div class="key k-fn" onclick="insert('(')">(</div>
-                <div class="key k-fn" onclick="insert(')')">)</div>
-                <div class="key k-op" onclick="insert('/')">/</div>
+                <!-- BASE LAYER -->
+                <div class="key k-ac" onmousedown="event.preventDefault()" onclick="clearAll()">AC</div>
+                <div class="key k-fn" onmousedown="event.preventDefault()" onclick="insert('(')">(</div>
+                <div class="key k-fn" onmousedown="event.preventDefault()" onclick="insert(')')">)</div>
+                <div class="key k-op" onmousedown="event.preventDefault()" onclick="insert('/')">/</div>
 
-                <!-- Row 2 -->
-                <div class="key k-num" onclick="insert('7')">7</div>
-                <div class="key k-num" onclick="insert('8')">8</div>
-                <div class="key k-num" onclick="insert('9')">9</div>
-                <div class="key k-op" onclick="insert('*')">×</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('7')">7</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('8')">8</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('9')">9</div>
+                <div class="key k-op" onmousedown="event.preventDefault()" onclick="insert('*')">×</div>
 
-                <!-- Row 3 -->
-                <div class="key k-num" onclick="insert('4')">4</div>
-                <div class="key k-num" onclick="insert('5')">5</div>
-                <div class="key k-num" onclick="insert('6')">6</div>
-                <div class="key k-op" onclick="insert('-')">-</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('4')">4</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('5')">5</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('6')">6</div>
+                <div class="key k-op" onmousedown="event.preventDefault()" onclick="insert('-')">-</div>
 
-                <!-- Row 4 -->
-                <div class="key k-num" onclick="insert('1')">1</div>
-                <div class="key k-num" onclick="insert('2')">2</div>
-                <div class="key k-num" onclick="insert('3')">3</div>
-                <div class="key k-op" onclick="insert('+')">+</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('1')">1</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('2')">2</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('3')">3</div>
+                <div class="key k-op" onmousedown="event.preventDefault()" onclick="insert('+')">+</div>
 
-                <!-- Row 5 -->
-                <div class="key k-num" onclick="insert('0')">0</div>
-                <div class="key k-num" onclick="insert('.')">.</div>
-                <div class="key k-ac" onclick="backspace()">⌫</div>
-                <div class="key k-solve" onclick="calculate()">=</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('0')">0</div>
+                <div class="key k-num" onmousedown="event.preventDefault()" onclick="insert('.')">.</div>
+                <div class="key k-ac" onmousedown="event.preventDefault()" onclick="backspace()">⌫</div>
+                <div class="key k-solve" onmousedown="event.preventDefault()" onclick="calculate()">=</div>
             </div>
         </div>
 
@@ -308,6 +347,7 @@
         const drawer = document.getElementById('stepDrawer');
         const content = document.getElementById('stepContent');
         const hint = document.getElementById('syntaxHint');
+        const pang = document.getElementById('pangWidget');
 
         function switchMode(mode) {
             if(mode === 'basic') {
@@ -323,13 +363,12 @@
             }
         }
 
+        // 核心修改：移除 focus 监听，避免键盘弹出
         input.addEventListener('input', renderPreview);
 
         function renderPreview() {
             let txt = input.value;
             if(!txt) { preview.innerHTML = ""; return; }
-            
-            // LaTeX 美化替换
             txt = txt.replace(/sqrt/g, '\\sqrt')
                      .replace(/diff/g, '\\frac{d}{dx}')
                      .replace(/defint/g, '\\int_{a}^{b}')
@@ -343,15 +382,12 @@
                      .replace(/log/g, '\\ln')
                      .replace(/factorial/g, '!')
                      .replace(/abs/g, '| |');
-            
             try { katex.render(txt, preview, {throwOnError: false}); } catch(e) {}
         }
 
-        // 修改 insert 函数，支持提示文本
         function insert(val, hintText = null) {
-            const start = input.selectionStart; const end = input.selectionEnd;
-            input.value = input.value.substring(0, start) + val + input.value.substring(end);
-            input.focus(); input.setSelectionRange(start + val.length, start + val.length);
+            // 简单插入，不使用 selectionStart 防止某些浏览器强制聚焦
+            input.value += val;
             renderPreview();
             
             // 显示语法提示
@@ -362,85 +398,98 @@
             }
         }
 
-        function clearAll() { input.value = ""; preview.innerHTML = ""; content.innerHTML = ""; toggleDrawer(false); }
+        function clearAll() { input.value = ""; preview.innerHTML = ""; content.innerHTML = ""; toggleDrawer(false); setPangState('idle'); }
         function backspace() { input.value = input.value.slice(0, -1); renderPreview(); }
         function toggleDrawer(show) { show ? drawer.classList.add('active') : drawer.classList.remove('active'); }
+
+        function setPangState(state) {
+            pang.classList.remove('thinking', 'error', 'success');
+            if(state !== 'idle') pang.classList.add(state);
+        }
 
         function calculate() {
             let expr = input.value;
             if(!expr) return;
+            setPangState('thinking');
+
             const open = (expr.match(/\(/g) || []).length;
             const close = (expr.match(/\)/g) || []).length;
             if(open > close) expr += ")".repeat(open - close);
 
-            try {
-                let result = "", html = "";
-                
-                // 1. 极限
-                if(expr.startsWith('limit(')) {
-                    // nerdamer limit(expr, x, val)
-                    const core = nerdamer(expr).toTeX();
-                    html = makeStep("LIMIT ANALYSIS", `$$ ${core} $$`) + makeStep("RESULT", core, "", true);
-                    result = core;
-                }
-                // 2. 定积分 defint(fn, x, a, b)
-                else if(expr.startsWith('defint(')) {
-                    // nerdamer defint(fn, a, b) -> 如果只有一个变量，可以省略变量名，但最好带上
-                    let val = nerdamer(expr).text(); // 得到数值
-                    html = makeStep("DEFINITE INTEGRAL", `$$ \\int_{a}^{b} f(x) dx $$`) + makeStep("EVALUATION", val, "", true);
-                    result = val;
-                }
-                // 3. 求和 sum(fn, n, start, end)
-                else if(expr.startsWith('sum(')) {
-                    let val = nerdamer(expr).text();
-                    html = makeStep("SUMMATION", `$$ \\sum f(n) $$`) + makeStep("RESULT", val, "", true);
-                    result = val;
-                }
-                // 4. 求导
-                else if(expr.startsWith('diff(')) {
-                    const core = expr.match(/diff\((.*)\)/)[1];
-                    result = nerdamer(expr).toTeX();
-                    html = makeStep("INPUT", `f(x) = ${core}`) + makeStep("RULE", "Applying Differentiation Rules") + makeStep("RESULT", result, "", true);
-                } 
-                // 5. 不定积分
-                else if(expr.startsWith('integrate(')) {
-                    const core = expr.match(/integrate\((.*)\)/)[1];
-                    result = nerdamer(expr).toTeX();
-                    html = makeStep("INTEGRAND", `\\int (${core}) \\, dx`) + makeStep("RULE", "Finding Antiderivative") + makeStep("RESULT", `${result} + C`, "", true);
-                }
-                // 6. 解方程
-                else if(expr.startsWith('solve(')) {
-                    let core = expr.match(/solve\((.*)\)/)[1];
-                    let sol = nerdamer.solve(core, 'x'); 
-                    let rootsTex = sol.toString().replace(/\[|\]/g, '').split(',').map(r => `x = ${nerdamer(r).toTeX()}`).join('\\quad \\text{or} \\quad ');
-                    html = makeStep("EQUATION", `${core} = 0`) + makeStep("ROOTS", rootsTex || "No Solution", "", true);
-                    result = rootsTex;
-                }
-                // 7. 普通计算
-                else {
-                    const ans = nerdamer(expr);
-                    result = ans.toTeX();
-                    let numericNote = "";
-                    if((expr.includes('e') || expr.includes('pi') || expr.includes('sqrt')) && !isNaN(ans.evaluate().text())) {
-                         numericNote = `Approx: ${parseFloat(ans.evaluate().text()).toFixed(6)}`;
+            setTimeout(() => {
+                try {
+                    let result = "", html = "";
+                    let pangSay = "Calculating...";
+
+                    if(expr.startsWith('limit(')) {
+                        const core = nerdamer(expr).toTeX();
+                        html = makeStep("LIMIT ANALYSIS", `$$ ${core} $$`) + makeStep("RESULT", core, "", true);
+                        result = core;
+                        pangSay = "Limit approached.";
                     }
-                    html = makeStep("EXPRESSION", expr) + makeStep("RESULT", result, numericNote, true);
+                    else if(expr.startsWith('defint(')) {
+                        let val = nerdamer(expr).text();
+                        html = makeStep("DEFINITE INTEGRAL", `$$ \\int_{a}^{b} f(x) dx $$`) + makeStep("EVALUATION", val, "", true);
+                        result = val;
+                        pangSay = "Area found.";
+                    }
+                    else if(expr.startsWith('sum(')) {
+                        result = nerdamer(expr).toTeX();
+                        html = makeStep("SUMMATION", `$$ \\sum f(n) $$`) + makeStep("RESULT", result, "", true);
+                        result = result;
+                    }
+                    else if(expr.startsWith('diff(')) {
+                        const core = expr.match(/diff\((.*)\)/)[1];
+                        result = nerdamer(expr).toTeX();
+                        html = makeStep("INPUT", `f(x) = ${core}`) + makeStep("RULE", "Applying Rules") + makeStep("RESULT", result, "", true);
+                        pangSay = "Slope calculated.";
+                    } 
+                    else if(expr.startsWith('integrate(')) {
+                        const core = expr.match(/integrate\((.*)\)/)[1];
+                        result = nerdamer(expr).toTeX();
+                        html = makeStep("INTEGRAND", `\\int (${core}) \\, dx`) + makeStep("RULE", "Antiderivative") + makeStep("RESULT", `${result} + C`, "", true);
+                        pangSay = "Don't forget + C!";
+                    }
+                    else if(expr.startsWith('solve(')) {
+                        let core = expr.match(/solve\((.*)\)/)[1];
+                        let sol = nerdamer.solve(core, 'x'); 
+                        let rootsTex = sol.toString().replace(/\[|\]/g, '').split(',').map(r => `x = ${nerdamer(r).toTeX()}`).join('\\quad \\text{or} \\quad ');
+                        html = makeStep("EQUATION", `${core} = 0`) + makeStep("ROOTS", rootsTex || "No Solution", "", true);
+                        result = rootsTex;
+                        pangSay = "Solved.";
+                    }
+                    else {
+                        const ans = nerdamer(expr);
+                        result = ans.toTeX();
+                        let numericNote = "";
+                        if((expr.includes('e') || expr.includes('pi') || expr.includes('sqrt')) && !isNaN(ans.evaluate().text())) {
+                            numericNote = `Approx: ${parseFloat(ans.evaluate().text()).toFixed(6)}`;
+                        }
+                        html = makeStep("EXPRESSION", expr) + makeStep("RESULT", result, numericNote, true);
+                        pangSay = "Done.";
+                    }
+
+                    katex.render(result, preview, {throwOnError:false, displayMode:true});
+                    
+                    const pangHtml = `<div class="pang-bubble"><i class="fas fa-cat"></i> ${pangSay}</div>`;
+                    content.innerHTML = pangHtml + html;
+                    
+                    renderMathInElement(content, {delimiters: [{left: "$$", right: "$$", display: true}]});
+                    toggleDrawer(true);
+                    
+                    setPangState('success');
+                    setTimeout(() => setPangState('idle'), 2000);
+
+                } catch(e) {
+                    preview.innerHTML = "<span style='color:#ff3366; font-size:16px;'>SYNTAX ERROR</span>";
+                    setPangState('error');
+                    setTimeout(() => setPangState('idle'), 2000);
                 }
-
-                katex.render(result, preview, {throwOnError:false, displayMode:true});
-                content.innerHTML = html;
-                renderMathInElement(content, {delimiters: [{left: "$$", right: "$$", display: true}]});
-                toggleDrawer(true);
-
-            } catch(e) {
-                console.log(e);
-                preview.innerHTML = "<span style='color:#ff3366; font-size:16px;'>SYNTAX ERROR</span>";
-            }
+            }, 300);
         }
 
         function makeStep(title, math, desc="", isFinal=false) {
             let descHtml = desc ? `<div class="step-note">${desc}</div>` : '';
-            // 简单的数学公式包装
             let mathHtml = (math.includes('$$') || math.includes('\\')) ? math : `$$ ${math} $$`;
             return `<div class="step-card ${isFinal?'result-card':''}"><div class="step-head">// ${title}</div><div class="step-body">${mathHtml}</div>${descHtml}</div>`;
         }
